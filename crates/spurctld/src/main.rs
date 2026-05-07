@@ -1,5 +1,6 @@
 mod accounting;
 mod cluster;
+mod fairshare_cache;
 mod raft;
 mod raft_server;
 mod scheduler_loop;
@@ -146,6 +147,13 @@ async fn main() -> anyhow::Result<()> {
             );
         }
     }
+
+    // Start fairshare factor refresh loop
+    cluster.fairshare_cache().spawn_refresh_loop(
+        config.accounting.host.clone(),
+        config.scheduler.fairshare_halflife_days,
+        config.accounting.fairshare_refresh_secs as u64,
+    );
 
     // Start scheduler loop (only schedules when this node is Raft leader)
     let sched_cluster = cluster.clone();

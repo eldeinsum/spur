@@ -199,6 +199,9 @@ pub struct AccountingConfig {
     /// How long to keep completed job records.
     #[serde(default = "default_purge_days")]
     pub purge_after_days: u32,
+    /// How often to refresh fairshare factors from the accounting daemon.
+    #[serde(default = "default_fairshare_refresh_secs")]
+    pub fairshare_refresh_secs: u32,
 }
 
 fn default_accounting_host() -> String {
@@ -210,6 +213,9 @@ fn default_database_url() -> String {
 fn default_purge_days() -> u32 {
     365
 }
+fn default_fairshare_refresh_secs() -> u32 {
+    300
+}
 
 impl Default for AccountingConfig {
     fn default() -> Self {
@@ -217,6 +223,7 @@ impl Default for AccountingConfig {
             host: "localhost:6819".into(),
             database_url: "postgresql://spur:spur@localhost/spur".into(),
             purge_after_days: 365,
+            fairshare_refresh_secs: 300,
         }
     }
 }

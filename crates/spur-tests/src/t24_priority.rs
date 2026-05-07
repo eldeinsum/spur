@@ -4,47 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Utc};
     use spur_sched::priority;
-
-    // ── T24.1: Fair-share with no usage ──────────────────────────
-
-    #[test]
-    fn t24_1_fair_share_no_usage() {
-        let factor = priority::fair_share_factor(1.0, &[], 14, Utc::now());
-        assert!(factor > 100.0, "no usage → very high factor");
-    }
-
-    // ── T24.2: Fair-share with heavy recent usage ────────────────
-
-    #[test]
-    fn t24_2_fair_share_heavy_usage() {
-        let now = Utc::now();
-        let records: Vec<_> = (0..14).map(|d| (now - Duration::days(d), 100.0)).collect();
-        let factor = priority::fair_share_factor(1.0, &records, 14, now);
-        assert!(factor < 1.0, "heavy usage → low factor");
-    }
-
-    // ── T24.3: Usage decay ───────────────────────────────────────
-
-    #[test]
-    fn t24_3_old_usage_decays() {
-        let now = Utc::now();
-
-        // Recent usage
-        let recent = vec![(now - Duration::hours(1), 100.0)];
-        let factor_recent = priority::fair_share_factor(1.0, &recent, 14, now);
-
-        // Old usage (same amount but 30 days ago)
-        let old = vec![(now - Duration::days(30), 100.0)];
-        let factor_old = priority::fair_share_factor(1.0, &old, 14, now);
-
-        // Old usage should decay → higher factor
-        assert!(
-            factor_old > factor_recent,
-            "old usage should result in higher factor than recent"
-        );
-    }
 
     // ── T24.4: Effective priority ────────────────────────────────
 

@@ -310,6 +310,9 @@ service SlurmAccounting {
   rpc CreateQos(CreateQosRequest) returns (google.protobuf.Empty);
   rpc DeleteQos(DeleteQosRequest) returns (google.protobuf.Empty);
   rpc ListQos(ListQosRequest) returns (ListQosResponse);
+
+  // Fairshare
+  rpc GetFairshareFactors(GetFairshareFactorsRequest) returns (GetFairshareFactorsResponse);
 }
 
 // ============================================================
@@ -558,6 +561,14 @@ message GetUsageResponse {
   map<string, double> cpu_hours = 1;    // per account
   map<string, double> gpu_hours = 2;
   map<string, uint64> job_count = 3;
+}
+
+message GetFairshareFactorsRequest {
+  uint32 halflife_days = 1;
+}
+
+message GetFairshareFactorsResponse {
+  map<string, double> factors = 1;  // key = "user:account"
 }
 
 // -- K8s Operator --

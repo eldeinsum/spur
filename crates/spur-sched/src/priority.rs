@@ -1,31 +1,3 @@
-use chrono::{DateTime, Duration, Utc};
-
-/// Calculate fair-share factor for a user/account.
-///
-/// fair_share_factor = target_share / max(decayed_actual_usage, epsilon)
-///
-/// The decay uses a half-life model where older usage matters less.
-pub fn fair_share_factor(
-    target_share: f64,
-    usage_records: &[(DateTime<Utc>, f64)], // (timestamp, cpu_hours)
-    halflife_days: u32,
-    now: DateTime<Utc>,
-) -> f64 {
-    let halflife = Duration::days(halflife_days as i64);
-    let decay_rate = 2.0_f64.ln() / halflife.num_seconds() as f64;
-
-    let decayed_usage: f64 = usage_records
-        .iter()
-        .map(|(time, usage)| {
-            let age = (now - *time).num_seconds().max(0) as f64;
-            usage * (-decay_rate * age).exp()
-        })
-        .sum();
-
-    let epsilon = 0.001; // Avoid division by zero
-    target_share / decayed_usage.max(epsilon)
-}
-
 /// Calculate effective job priority.
 ///
 /// effective_priority = base_priority * fair_share_factor * age_factor * partition_tier
@@ -49,34 +21,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fair_share_no_usage() {
-        let factor = fair_share_factor(1.0, &[], 14, Utc::now());
-        // With no usage, factor should be very high (share / epsilon)
-        assert!(factor > 100.0);
-    }
+    fn effective_priority_cases() {
+        let cases = [
+            ((1000, 1.0, 0, 1), 1000),
+            ((1000, 1.0, 10080, 1), 2000),
+            ((1000, 1.0, 0, 2), 2000),
+            ((1000, 100.0, 0, 1), 10_000),
+            ((0, 0.001, 0, 1), 1),
+        ];
 
-    #[test]
-    fn test_fair_share_heavy_usage() {
-        let now = Utc::now();
-        let records: Vec<(DateTime<Utc>, f64)> =
-            (0..14).map(|d| (now - Duration::days(d), 100.0)).collect();
-
-        let factor = fair_share_factor(1.0, &records, 14, now);
-        // Heavy recent usage → low factor
-        assert!(factor < 1.0);
-    }
-
-    #[test]
-    fn test_effective_priority() {
-        let p = effective_priority(1000, 1.0, 0, 1);
-        assert_eq!(p, 1000);
-
-        // With age bonus
-        let p = effective_priority(1000, 1.0, 10080, 1);
-        assert_eq!(p, 2000);
-
-        // With partition tier
-        let p = effective_priority(1000, 1.0, 0, 2);
-        assert_eq!(p, 2000);
+        for ((base, fs, age, tier), expected) in cases {
+            let got = effective_priority(base, fs, age, tier);
+            assert_eq!(
+                got, expected,
+                "effective_priority({base}, {fs}, {age}, {tier})"
+            );
+        }
     }
 }

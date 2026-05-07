@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
@@ -18,6 +19,7 @@ use spur_core::step::{JobStep, StepState, STEP_BATCH};
 use spur_core::wal::WalOperation;
 
 use crate::accounting::AccountingNotifier;
+use crate::fairshare_cache::FairshareCache;
 use crate::raft::{SpurRaft, StateMachineApply};
 
 /// Central cluster state manager.
@@ -36,12 +38,14 @@ pub struct ClusterManager {
     hostname_aliases: RwLock<HashMap<String, String>>,
     raft: RwLock<Option<SpurRaft>>,
     accounting: RwLock<Option<AccountingNotifier>>,
+    fairshare_cache: Arc<FairshareCache>,
 }
 
 impl ClusterManager {
     pub fn new(config: SlurmConfig, _state_dir: &Path) -> anyhow::Result<Self> {
         let partitions = config.build_partitions();
         let license_pool = config.licenses.clone();
+        let fairshare_cache = Arc::new(FairshareCache::new());
 
         let cm = Self {
             config,
@@ -55,6 +59,7 @@ impl ClusterManager {
             hostname_aliases: RwLock::new(HashMap::new()),
             raft: RwLock::new(None),
             accounting: RwLock::new(None),
+            fairshare_cache,
         };
 
         info!("cluster manager initialized (state will be recovered via Raft)");
@@ -953,10 +958,12 @@ impl ClusterManager {
                 .and_then(|pname| partitions.iter().find(|p| p.name == *pname))
                 .map(|p| p.priority_tier)
                 .unwrap_or(1);
-            // fair_share = 1.0 (neutral) until spurdbd integration
+            let fair_share = self
+                .fairshare_cache
+                .get(&job.spec.user, job.spec.account.as_deref().unwrap_or(""));
             job.priority = spur_sched::priority::effective_priority(
                 job.priority,
-                1.0,
+                fair_share,
                 age_minutes,
                 partition_tier,
             );
@@ -1246,6 +1253,10 @@ impl ClusterManager {
 
     pub fn set_accounting(&self, notifier: AccountingNotifier) {
         *self.accounting.write() = Some(notifier);
+    }
+
+    pub fn fairshare_cache(&self) -> &Arc<FairshareCache> {
+        &self.fairshare_cache
     }
 
     /// Persist a mutation via Raft consensus. The apply callback
