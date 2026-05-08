@@ -77,18 +77,39 @@ wait_job() {
 debug_fail() {
     local name="$1" job_id="$2"
     echo "    DEBUG ${name} (job ${job_id}):"
-    "${SPUR}/scontrol" show job "$job_id" 2>/dev/null \
-        | grep -E 'JobState|ExitCode|NodeList|Reason|Partition|Priority' \
-        | sed 's/^/      /' || true
+    "${SPUR}/scontrol" show job "$job_id" 2>/dev/null | sed 's/^/         /' || true
     echo "    CLUSTER STATE:"
     echo "      Nodes:"
     "${SPUR}/sinfo" 2>/dev/null | head -20 | sed 's/^/        /' || true
     echo "      Queue:"
     "${SPUR}/squeue" -t all 2>/dev/null | head -20 | sed 's/^/        /' || true
-    echo "      Controller logs (last 15 lines):"
-    journalctl -u spurctld --no-pager -n 15 2>/dev/null | sed 's/^/        /' || true
-    echo "      Agent logs (last 10 lines):"
-    journalctl -u spurd --no-pager -n 10 2>/dev/null | sed 's/^/        /' || true
+
+    # Job output file (if it exists locally or on remote node)
+    local out_path
+    out_path=$("${SPUR}/scontrol" show job "$job_id" 2>/dev/null | grep -oP 'StdOut=\K\S+' || true)
+    if [ -n "$out_path" ]; then
+        echo "      Job stdout (${out_path}):"
+        if [ -f "$out_path" ]; then
+            tail -20 "$out_path" 2>/dev/null | sed 's/^/        /' || true
+        else
+            ssh mi300-2 "tail -20 '$out_path' 2>/dev/null" 2>/dev/null | sed 's/^/        (mi300-2) /' || echo "        (file not found)"
+        fi
+    fi
+
+    # Controller log (runs on this node)
+    echo "      Controller logs (last 20 lines):"
+    tail -20 "${SPUR_HOME}/log/spurctld.log" 2>/dev/null | sed 's/^/        /' \
+        || echo "        (not found at ${SPUR_HOME}/log/spurctld.log)"
+
+    # Local agent log
+    echo "      Agent logs — $(hostname) (last 15 lines):"
+    tail -15 "${SPUR_HOME}/log/spurd.log" 2>/dev/null | sed 's/^/        /' \
+        || echo "        (not found at ${SPUR_HOME}/log/spurd.log)"
+
+    # Remote agent log
+    echo "      Agent logs — mi300-2 (last 15 lines):"
+    ssh mi300-2 "tail -15 ~/spur/log/spurd.log 2>/dev/null" 2>/dev/null | sed 's/^/        /' \
+        || echo "        (not reachable or log not found)"
 }
 
 job_state() {
