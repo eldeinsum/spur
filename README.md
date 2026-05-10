@@ -196,28 +196,28 @@ printf("Submitted job %u\n", job_id);
 
 ```
                     ┌─────────────────────────────┐
-                    │        API Surface           │
-                    │  CLI (spur / sbatch / srun)  │
-                    │  REST (spurrestd)            │
-                    │  C FFI (libspur_compat.so)   │
-                    └──────────────┬───────────────┘
+                    │        API Surface          │
+                    │  CLI (spur / sbatch / srun) │
+                    │  REST (spurrestd)           │
+                    │  C FFI (libspur_compat.so)  │
+                    └──────────────┬──────────────┘
                                    │ gRPC
                     ┌──────────────▼───────────────┐
-                    │      spurctld (Rust)          │
+                    │      spurctld (Rust)         │
                     │  ┌─────────┐ ┌────────────┐  │
-                    │  │Backfill │ │  Raft Log + │  │
-                    │  │Scheduler│ │  Snapshots  │  │
-                    │  │         │ │  (openraft) │  │
+                    │  │Backfill │ │ Raft Log + │  │
+                    │  │Scheduler│ │ Snapshots  │  │
+                    │  │         │ │ (openraft) │  │
                     │  └─────────┘ └────────────┘  │
                     └──────┬───────────────┬───────┘
                            │               │
               ┌────────────▼──┐    ┌───────▼────────┐
-              │  spurd (Rust)  │    │ spurdbd (Rust)  │
-              │  Node agent    │    │ Accounting      │
-              │  - cgroups v2  │    │ - PostgreSQL    │
-              │  - GPU enum    │    │ - Fair-share    │
-              │  - fork/exec   │    │ - Job history   │
-              └────────────────┘    └─────────────────┘
+              │  spurd (Rust) │    | spurdbd (Rust) │
+              │  Node agent   │    │ Accounting     │
+              │  - cgroups v2 │    │ - PostgreSQL   │
+              │  - GPU enum   │    │ - Fair-share   │
+              │  - fork/exec  │    │ - Job history  │
+              └───────────────┘    └────────────────┘
 ```
 
 ## Configuration
